@@ -1,0 +1,32 @@
+name: thechroniclesbot uptime
+
+on:
+  schedule:
+    - cron: "*/9 * * * *"   # GitHub may delay scheduled runs by a few minutes under load
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /health (allows ~60s+ for a Render cold start)
+        run: |
+          URL="https://thechroniclesbot.onrender.com/health"
+          for i in 1 2 3 4 5 6 7 8; do
+            body=$(curl -sS --max-time 30 -w ' HTTP_%{http_code}' "$URL" || true)
+            echo "attempt $i: $body"
+            if echo "$body" | grep -q '"status": "ok"' && echo "$body" | grep -q 'HTTP_200'; then
+              echo "healthy"; exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::thechroniclesbot is unhealthy or unreachable"
+          exit 1
